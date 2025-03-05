@@ -5,6 +5,7 @@ import platform
 import urllib.request
 from apicat import get_url_cat
 import time
+import math
 
 # Inicializar MediaPipe Hands
 mp_hands = mp.solutions.hands
@@ -110,6 +111,24 @@ def detect_sign(hand_landmarks):
 
     return None  # Si no se detecta ningún gesto
 
+# Función para rotar imagen según el ángulo del índice respecto a la muñeca
+def rotate_image_by_hand(image, hand_landmarks):
+    wrist = hand_landmarks.landmark[0]
+    index_tip = hand_landmarks.landmark[8]
+    
+    v_x = index_tip.x - wrist.x
+    v_y = index_tip.y - wrist.y
+    
+    angle = -math.degrees(math.atan2(v_y, v_x))
+    if angle < 0:
+        angle += 360
+    
+    rows, cols, _ = image.shape
+    M = cv2.getRotationMatrix2D((cols//2, rows//2), angle, 1)
+    return cv2.warpAffine(image, M, (cols, rows))
+
+    return None  # Si no se detecta ningún gesto
+
 # Descargar la primera imagen
 image = fetch_cat_image()
 if image is None:
@@ -128,39 +147,26 @@ with mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_conf
         frame = cv2.flip(frame, 1)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = hands.process(frame_rgb)
+        rotated_image = image.copy()
         
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-
-                # Obtener el tiempo actual
                 current_time = time.time()
-                
-                # Detectar el gesto
                 gesture_swipe = detect_sign(hand_landmarks)
-
-                # Si ha pasado suficiente tiempo desde la última detección, ejecutar la acción
+                
                 if current_time - last_gesture_time > gesture_cooldown:
-                    """ 
-                    Agregar aquí la lógica para ejecutar acciones basadas en los gestos detectados.
-                    """
                     if gesture_swipe == "right":
-                        next_image() # Función para cambiar a la siguiente imagen
+                        next_image()
                         last_gesture_time = current_time
-
                     elif gesture_swipe == "left":
-                        previous_image() # Función para cambiar a la imagen anterior
+                        previous_image()
                         last_gesture_time = current_time
-                        
-                    #Agregar más acciones aquí según sea necesario
-                        
-                # Aquí van los gestos que no requieren tiempo de espera
-                if gesture_swipe is not None:
-                    if gesture_swipe == "otrogesto":
-                        print("Otro gesto")
+                
+                rotated_image = rotate_image_by_hand(image, hand_landmarks)
         
         cv2.imshow("Captura de Video", frame)
-        cv2.imshow("Imagen de Gato", image)
+        cv2.imshow("Imagen Rotada", rotated_image)
 
         if cv2.waitKey(1) & 0xFF == 27:
             break
