@@ -153,6 +153,11 @@ with mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_conf
                         last_gesture_time = current_time
                         
                     #Agregar más acciones aquí según sea necesario
+                        
+                # Aquí van los gestos que no requieren tiempo de espera
+                if gesture_swipe is not None:
+                    if gesture_swipe == "otrogesto":
+                        print("Otro gesto")
         
         cv2.imshow("Captura de Video", frame)
         cv2.imshow("Imagen de Gato", image)
