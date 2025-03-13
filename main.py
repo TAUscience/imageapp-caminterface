@@ -6,10 +6,15 @@ import urllib.request
 from apicat import get_url_cat
 import time
 import math
+import os
 
 # Inicializar MediaPipe Hands
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
+
+# Crear carpeta para guardar imágenes descargadas
+save_folder = "imagenes_guardadas"
+os.makedirs(save_folder, exist_ok=True)
 
 # Detectar el sistema operativo
 sistema = platform.system()
@@ -65,6 +70,11 @@ def fetch_cat_image():
     except Exception as e:
         print(f"Error desconocido: {e}")
 
+def descargar_imagen(image):
+    timestamp = int(time.time())
+    filename = os.path.join(save_folder, f"imagen_{timestamp}.jpg")
+    cv2.imwrite(filename, image)
+    print(f"Imagen guardada en {filename}")
 
 """
 #############################################################
@@ -101,10 +111,18 @@ def detect_sign(hand_landmarks):
     #Lógica para detectar el gesto de cambio de imagen
     x_thumb = hand_landmarks.landmark[4].x
     x_index = hand_landmarks.landmark[8].x
+    y_thumb = hand_landmarks.landmark[4].y
+    y_index = hand_landmarks.landmark[8].y
+    y_middle = hand_landmarks.landmark[12].y
+
     if x_thumb < x_index - 0.1:
         return "right"
     elif x_thumb > x_index + 0.1:
         return "left"
+
+    # Detectar gesto de like (pulgar arriba, otros dedos abajo)
+    if y_thumb < y_index and y_thumb < y_middle:
+        return "like"
     
     #Agregar más gestos aquí según sea necesario
     
@@ -127,7 +145,7 @@ def rotate_image_by_hand(image, hand_landmarks):
     M = cv2.getRotationMatrix2D((cols//2, rows//2), angle, 1)
     return cv2.warpAffine(image, M, (cols, rows))
 
-    return None  # Si no se detecta ningún gesto
+     # Si no se detecta ningún gesto
 
 # Descargar la primera imagen
 image = fetch_cat_image()
@@ -162,7 +180,9 @@ with mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_conf
                     elif gesture_swipe == "left":
                         previous_image()
                         last_gesture_time = current_time
-                
+                    elif gesture_swipe == "like":
+                        descargar_imagen(image)
+                        last_gesture_time = current_time
                 rotated_image = rotate_image_by_hand(image, hand_landmarks)
         
         cv2.imshow("Captura de Video", frame)
@@ -173,3 +193,4 @@ with mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_conf
 
 cap.release()
 cv2.destroyAllWindows()
+
